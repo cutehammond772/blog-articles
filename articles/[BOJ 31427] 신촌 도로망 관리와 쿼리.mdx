@@ -1,0 +1,160 @@
+---
+tag: ["알고리즘", "브루트 포스", "최소 스패닝 트리"]
+createdDate: 2024-03-11
+modifiedDate: 2024-03-11
+---
+
+# 문제 소개
+
+> 문제 링크 : [https://boj.kr/31427](https://boj.kr/31427)
+>
+> Tier : **Platinum V**
+>
+> Tag : **Bruteforcing**, **Minimum Spanning Tree**
+
+무방향 그래프가 주어지고, 각 도로(= 간선)는 5개의 학교가 각각 소유하고 있습니다.
+
+이때, 각 학교마다 도로의 비용은 모두 같으며 쿼리마다 각 학교의 도로의 비용이 주어지게 됩니다.
+
+쿼리가 주어질 때마다 도로 관리비의 합의 최소를 구해야 하는 문제입니다.
+
+# 풀이
+
+## 1. 지문의 조건으로부터 최소 스패닝 트리 문제임을 알아차리기
+
+문제의 조건을 보면, "임의의 두 정점을 직접적으로 잇는 도로는 최대 한 개만 존재하고, 어떤 두 정점을 선택하더라도 그 두 정점을 연결하는 경로가 존재함이 보장된다."
+
+가 있습니다. 이는 그래프의 형태가 트리일 때의 주요 특징 중 하나입니다.
+
+따라서, 우리는 이 조건을 보자마자 트리 문제임을 알아차려야 하며, 관리비(= 간선 비용)의 합의 최소를 구해야 하는 문제이므로
+
+최소 스패닝 트리를 구성하는 문제임을 알 수 있습니다.
+
+## 2. 시간 복잡도 체크 후, 브루트포스 가능 여부 판단해보기
+
+일반적으로 최소 스패닝 트리 구성 시, 크루스칼 알고리즘을 이용하면
+
+간선 정렬 시 O(NlogN), Union-Find를 적절히 최적화하여 O(logN) 미만 정도이므로
+
+커봤자 O(Nlog^2N) 정도에 구성할 수 있습니다.
+
+그런데, 이 문제에서는 쿼리 당 이러한 과정이 필요하므로 (만약 브루트 포스로 구한다면)
+
+최종 시간 복잡도는 O(QNlog^2N) 정도가 될 것입니다. 그런데, Q\*N의 최대는 10억 정도이므로 2.5초 정도의 제한 시간에 푸는 것은 불가능함을 알 수 있습니다.
+
+> 일반적으로 연산 1억 회에 1초로 간주하면 시간 초과 여부를 쉽게 판단할 수 있습니다.
+
+## 3. 이 문제만의 특징을 통해, 최적화 방법 고안해보기
+
+학교는 총 5개이며, 이로서 간선의 비용의 종류도 최대 5가지인 점을 캐치해야 합니다.
+
+만약 간선의 비용의 종류가 천차만별이라면, 위와 같이 정렬을 수행해야겠지만
+
+5가지로 한정되는 경우 각 학교의 비용 순위에 대한 모든 경우의 수를 미리 판단해 볼 수 있게 됩니다.
+
+다시 말해, 각 학교 간의 비교 관계는 5! = 120가지 이므로 이에 대해 최소 스패닝 트리를 미리 구성해 놓을 경우
+
+하나의 쿼리에 대해 O(1)의 시간에 구할 수 있게 됩니다.
+
+## 4. 쿼리를 처리하기 앞서 모든 비교 관계에 대해 전처리하기
+
+특정 비교 관계에 대해, 간선의 비용을 1, 2, 3, 4, 5로 임의로 정한 다음에 최소 스패닝 트리를 구성합니다.
+
+우리가 여기서 구하는 건 총 비용이 아니라 각 학교 당 **최소 스패닝 트리**에 포함되는 간선의 개수이기 때문에, 저런 식으로 간선의 비용을 설정할 수 있는 것입니다.
+
+이후에, 특정 쿼리가 들어왔을 때 비교 관계를 연산하여 120가지의 경우 중 하나를 찾은 다음
+
+(특정 학교의 간선의 비용) \* (특정 학교가 관리 중인 도로의 개수)를 모두 더해주면 됩니다.
+
+# 코드
+
+> ⚠️ 해당 문제의 시간 제한이 C++ 기준이므로, Python으로 제출 시 시간 초과가 발생합니다.
+>
+> 필자는 C++로 바꾸어 제출했습니다.
+
+```solution.py
+import sys
+input = lambda: sys.stdin.readline().rstrip()
+
+def find(G, x):
+	if G[x] == x:
+		return G[x]
+
+	nodes = [x]
+
+	while G[nodes[-1]] != nodes[-1]:
+		nodes.append(G[nodes[-1]])
+
+	for node in nodes:
+		G[node] = nodes[-1]
+
+	return G[x]
+
+def union(G, T, x, y):
+	x, y = find(G, x), find(G, y)
+
+	# Small to Large
+	if T[x] <= T[y]:
+		x, y = y, x
+
+	G[y] = G[x]
+	T[x] += T[y]
+
+# C: [A, B, C, D, E]의 비용
+def analyse(N, E, C):
+	# A, B, C, D, E가 담당하는 각각의 간선의 수
+	result = [0] * 5
+
+	count = 0
+	offset = 0
+	G = [*range(N + 1)]
+	T = [1] * (N + 1)
+
+	E.sort(key=lambda x: C[x[0]])
+
+	while count < N - 1:
+		z, u, v = E[offset]
+		offset += 1
+
+		u, v = find(G, u), find(G, v)
+
+		if u == v:
+			continue
+
+		result[z] += 1
+		count += 1
+		union(G, T, u, v)
+
+	return result
+
+def signature(C):
+	A = [(C[x], x) for x in range(5)]
+	A.sort()
+
+	return int("".join(str(x[1]) for x in A))
+
+if __name__ == "__main__":
+	N, M, Q = map(int, input().split())
+	E = []
+
+	S = [[] for _ in range(43211)]
+
+	for _ in range(M):
+		u, v, z = input().split()
+		E.append((ord(z) - ord('A'), int(u), int(v)))
+
+	for _ in range(Q):
+		C = [*map(int, input().split())]
+		sign = signature(C)
+
+		if not S[sign]:
+			S[sign] = analyse(N, E, C)
+
+		result = 0
+
+		for x in range(5):
+			result += C[x] * S[sign][x]
+
+		print(result)
+
+```
