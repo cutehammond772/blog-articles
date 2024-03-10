@@ -1,0 +1,132 @@
+---
+tag: ["알고리즘", "브루트 포스", "그래프 탐색"]
+createdDate: 2024-03-11
+modifiedDate: 2024-03-11
+---
+
+# 문제 소개
+
+> 문제 링크 : [https://boj.kr/31464](https://boj.kr/31464)
+>
+> Tier : **Gold II**
+>
+> Tag : **Bruteforcing**, **Graph Traversal**
+
+임의의 초콜릿 영역이 주어질 때, **특정한 하나의 단위 초콜릿**을 제거(1)한 상태에서
+
+처음에는 하나의 조각을 이루며(2), 여기서 임의의 단위 초콜릿을 떼어낼 경우 정확히 두 조각으로 나누어져야(3) 한다.
+
+로부터 (2), (3)를 모두 만족하는 (1)의 위치를 모두 출력하는 문제이다.
+
+# 풀이
+
+## 1. 지문을 읽으며 차근차근 생각해보기
+
+문제가 살짝 복잡하지만, 차근차근 읽어보면 각 스텝이 존재함을 알 수 있습니다.
+
+먼저, 특정한 단위 초콜릿을 먼저 제거(= 2단계)한 뒤에 남은 초콜릿 조각의 상태를 보아야 합니다.
+
+문제에서는, 남아있는 초콜릿은 한 조각을 이룬다고 명시되어 있습니다. 즉, 제거한 뒤에도
+
+초콜릿 조각은 두 개 이상으로 나누어질 수 없음을 의미합니다.
+
+> 따라서, 초콜릿의 모든 영역을 체크하여 모두 연결되어 있는지 (= 한 조각으로 이루어져 있는지) 체크하는 과정이 필요합니다.
+
+---
+
+그 다음을 보면, 여기서 단위 초콜릿을 하나 더 떼어야 한다고 합니다.
+
+이때, 어떤 것을 떼어도 무조건 두 개의 조각으로 나누어져야 함을 명심해야 합니다.
+
+여기서 모든 경우의 수를 체크할 수도 있지만, 시간 복잡도를 따져보면 O(N^6)이 됩니다.
+
+즉, 최적화 과정 없이 브루트 포스로 풀기에는 어려움이 있음을 알 수 있습니다.
+
+## 2. 문제로부터 최적화 방법을 떠올려보기
+
+일단, 답 자체는 2단계의 단위 초콜릿의 모든 위치이므로 이 부분은 그대로 브루트 포스로 푼다고 합시다.
+
+여기서 우리가 최적화해야 할 부분은 바로 **임의의 단위 초콜릿을 떼어냈을 때 두 조각으로 나누어져야 함** 입니다.
+
+이를 역으로 생각해보면, 특정 위치에서 단위 초콜릿을 떼어냈을 때 조각의 개수가 그대로 유지된다면 2단계를 충족하지 못하게 됨을 의미합니다.
+
+이러한 경우는 어떤 것이 있을까요? 바로 Cycle를 따지면 됩니다.
+
+# 코드
+
+```solution.py
+import sys
+input = lambda: sys.stdin.readline().rstrip()
+dr, dc = [-1, 0, 1, 0], [0, 1, 0, -1]
+
+def check(N, data):
+	area = 0
+	discover = [[-1] * N for _ in range(N)]
+
+	for i in range(N):
+		for j in range(N):
+			if data[i][j] == '.':
+				continue
+
+			if discover[i][j] >= 0:
+				continue
+
+			stack = [(-1, -1, i, j)]
+			discover[i][j] = area
+
+			while stack:
+				prow, pcol, row, col = stack.pop()
+
+				for x in range(4):
+					nrow, ncol = row + dr[x], col + dc[x]
+
+					if (nrow, ncol) == (prow, pcol):
+						continue
+
+					if not (0 <= nrow < N and 0 <= ncol < N):
+						continue
+
+					if data[nrow][ncol] == '.':
+						continue
+
+					# 사이클이 존재하는 경우
+					if discover[nrow][ncol] >= 0:
+						return False
+
+					discover[nrow][ncol] = area
+					stack.append((row, col, nrow, ncol))
+
+			area += 1
+
+	# 구역이 처음부터 둘로 나뉘어져 있으면 안 된다.
+	return area == 1
+
+def solve(N, data):
+	result = []
+
+	# 특정 초콜릿을 제거한 경우
+	for row in range(N):
+		for col in range(N):
+			if data[row][col] == '.':
+				continue
+
+			data[row][col] = '.'
+
+			if check(N, data):
+				result.append((row, col))
+
+			data[row][col] = '#'
+
+	return result
+
+if __name__ == '__main__':
+	N = int(input())
+	data = [[*input()] for _ in range(N)]
+
+	result = solve(N, data)
+	print(len(result))
+
+	for row, col in result:
+		print(row + 1, col + 1)
+
+```
